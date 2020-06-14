@@ -1,4 +1,6 @@
 ;;; -*- lexical-binding: t; -*-
+;; Author:  lee <loyalpartner@163.com>
+;; URL:     https://github.com/loyalpartner/baidu-translator.el
 
 (defconst baidu-translator-api-host "https://api.fanyi.baidu.com/api/trans/vip/translate")
 
