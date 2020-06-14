@@ -74,7 +74,7 @@
     (baidu-translator-translate
      (if (baidu-translator-chinese-p word) "zh" "en")
      (if (baidu-translator-chinese-p word) "en" "zh")
-     (thing-at-point 'sentence-at-point t))))
+     (thing-at-point 'sentence t))))
 
 (with-eval-after-load "evil"
   (evil-define-operator evil-baidu-translate-operator (beg end type)
