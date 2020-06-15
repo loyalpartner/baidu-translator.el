@@ -45,16 +45,16 @@
          (trans_result (assoc-default 'trans_result json)))
     (if trans_result
         (mapconcat (lambda (t)
-                     (concat (assoc-default 'src t)
-                             "\n"
-                             (assoc-default 'dst t)))
+                     (concat (assoc-default 'src t) "\n"
+                             (assoc-default 'dst t) "\n"))
                    trans_result "\n")
       (assoc-default 'error_msg json))))
 
 (defun baidu-translator-trim-tail (text)
-  (setq text (replace-regexp-in-string "\n\s*" " " text))
+  (setq text (replace-regexp-in-string "^\\*" "\n\n*" text))
+  (setq text (replace-regexp-in-string "[^\n]\n\s*" " " text))
   (setq text (replace-regexp-in-string "\\.\s" ".\n" text))
-  (setq text (replace-regexp-in-string ";" ";\n" text))
+  ;; (setq text (replace-regexp-in-string ";" ";\n" text))
   text)
 
 (defun baidu-translator-translate (from to text)
