@@ -56,7 +56,8 @@
 (defun baidu-translator-trim-tail (text)
   (setq text (replace-regexp-in-string "^\\*" "\n\n*" text))
   (setq text (replace-regexp-in-string "\\([^$]\\)\n\s*" "\\1 " text))
-  (setq text (replace-regexp-in-string "\\.\s" ".\n" text))
+  ;; (setq text (replace-regexp-in-string "\\([^$]\\)\n\s*" "\\1 " text))
+  (setq text (replace-regexp-in-string "\\([^0-9]+\\)\\.\s" "\\1.\n" text))
   ;; (setq text (replace-regexp-in-string ";" ";\n" text))
   text)
 
