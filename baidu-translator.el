@@ -10,7 +10,10 @@
 (defcustom baidu-translator-secret-key "Nb_cT61hFraVEUpkvp33"
   "baidu secret key" :type 'string)
 
-(define-derived-mode baidu-translator-mode nil "baidu-translator")
+(define-derived-mode baidu-translator-mode nil "baidu-translator"
+  "Major mode to show baidu translator result."
+  (setq font-lock-defaults '(("\\<[a-zA-z-~]*\\>" . (1 font-lock-string-face)))))
+
 
 (defvar baidu-translator-map
   (let ((map (make-sparse-keymap)))
