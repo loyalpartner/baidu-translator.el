@@ -61,6 +61,7 @@
   (with-current-buffer (get-buffer-create "*baidu translator*")
     (setq buffer-read-only nil)
     (baidu-translator-mode)
+    (visual-line-mode)
     (erase-buffer)
     (use-local-map baidu-translator-map)
     (insert (baidu-translator-get-result from to (baidu-translator-trim-tail text)))
