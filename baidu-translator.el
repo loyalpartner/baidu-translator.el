@@ -2,7 +2,7 @@
 ;; Author:  lee <loyalpartner@163.com>
 ;; URL:     https://github.com/loyalpartner/baidu-translator.el
 
-(defconst baidu-translator-api-host "https://api.fanyi.baidu.com/api/trans/vip/translate")
+(defconst baidu-translator--api-host "https://api.fanyi.baidu.com/api/trans/vip/translate")
 
 (defcustom baidu-translator-appid "20200607000488675"
   "baidu appid" :type 'string)
@@ -10,14 +10,15 @@
 (defcustom baidu-translator-secret-key "Nb_cT61hFraVEUpkvp33"
   "baidu secret key" :type 'string)
 
-(defcustom baidu-translator-show-delay 0.5 "" :type 'float)
+(defcustom baidu-translator-show-delay 0.5
+  "Delayed display" :type 'float)
 
 (defvar baidu-translator-last-focused-thing "")
 
 (defcustom baidu-translator-last-focused-thing-type 'sentence
   "baidu appid" :type 'symbol)
 
-(defvar baidu-translator-timer nil "")
+(defvar baidu-translator--timer nil "")
 
 ;; https://stackoverflow.com/questions/19649872/get-list-of-interactive-functions-in-elisp-emacs
 ;; (mapconcat #'symbol-name (seq-filter #'commandp (apropos-internal "^next-")) "\n")
@@ -99,11 +100,7 @@
            (add-hook 'post-command-hook #'baidu-translator-translate-thing-at-point nil t)))
         (t (remove-hook 'post-command-hook #'baidu-translator-translate-thing-at-point t))))
 
-(defun baidu-translator-quit ()
-  (interactive)
-  (kill-buffer-and-window))
-
-(defun baidu-translator-trim-tail (text)
+(defun baidu-translator--trim-tail (text)
   (setq text (replace-regexp-in-string "^\\*" "\n\n*" text))
   (setq text (replace-regexp-in-string "\\(^\s*[0-9]+\\..*$\\)" "\\1\n" text))
   (setq text (replace-regexp-in-string "\\([^$]\\)\n\s*" "\\1 " text))
@@ -111,7 +108,7 @@
   (setq text (replace-regexp-in-string "\\([^0-9]\\.\s\\)" "\\1\n" text))
   text)
 
-(defun baidu-translator-chinese-p (word)
+(defun baidu-translator--chinese-p (word)
   (and word (string-match "\\cc" word)))
 
 (defun baidu-translator-extract-result (string)
@@ -126,6 +123,7 @@
 
 ;; https://fanyi-api.baidu.com/doc/21
 (defun baidu-translator-get-result (from to text)
+  "url request"
   (let* ((url-request-method        "POST")
          (url-request-extra-headers `(("Content-Type" . "application/x-www-form-urlencoded")))
          (salt (number-to-string (random)))
@@ -135,7 +133,7 @@
                                    baidu-translator-appid
                                    (md5 (concat baidu-translator-appid text  salt baidu-translator-secret-key) nil nil (coding-system-from-name "utf-8"))
                                    from to)))
-    (with-current-buffer (url-retrieve-synchronously baidu-translator-api-host)
+    (with-current-buffer (url-retrieve-synchronously baidu-translator--api-host)
       (set-buffer-multibyte t)
       (goto-char (point-min))
       (when (not (string-match "200 OK" (buffer-string)))
@@ -150,26 +148,31 @@
     (visual-line-mode 1)
     (erase-buffer)
     (use-local-map baidu-translator-map)
-    (insert (baidu-translator-get-result from to (baidu-translator-trim-tail text)))
+    (insert (baidu-translator-get-result from to (baidu-translator--trim-tail text)))
     (setq buffer-read-only t)
     (goto-char (point-min))
     ;; (display-buffer-reuse-window (current-buffer) '((side . bottom)))
     (display-buffer (current-buffer))
     ))
 
+
+(defun baidu-translator-quit ()
+  (interactive)
+  (kill-buffer-and-window))
+
 (defun baidu-translator-translate-thing-at-point ()
   (interactive)
   (let* ((sentence (thing-at-point baidu-translator-last-focused-thing-type t))
          (word (thing-at-point 'word t))
-         (from (if (baidu-translator-chinese-p word) "zh" "en"))
-         (to (if (baidu-translator-chinese-p word) "en" "zh")))
+         (from (if (baidu-translator--chinese-p word) "zh" "en"))
+         (to (if (baidu-translator--chinese-p word) "en" "zh")))
     (cond ((not sentence))
           ((not (memq this-command baidu-translator-move-commands)))
           ((string= sentence baidu-translator-last-focused-thing))
           
-          (t (when baidu-translator-timer (cancel-timer baidu-translator-timer))
+          (t (when baidu-translator--timer (cancel-timer baidu-translator--timer))
              (setq baidu-translator-last-focused-thing sentence
-                   baidu-translator-timer (run-with-idle-timer
+                   baidu-translator--timer (run-with-idle-timer
                                            baidu-translator-show-delay nil
                                            (apply-partially 'baidu-translator-translate from to sentence)))))))
 
@@ -178,8 +181,8 @@
     (interactive "<R>")
     (let* ((text (buffer-substring-no-properties beg end))
            (word (thing-at-point 'word))
-           (source (if (baidu-translator-chinese-p word) "zh" "en"))
-           (target (if (baidu-translator-chinese-p word) "en" "zh")))
+           (source (if (baidu-translator--chinese-p word) "zh" "en"))
+           (target (if (baidu-translator--chinese-p word) "en" "zh")))
       (baidu-translator-translate source target text))))
 
 (provide 'baidu-translator)
