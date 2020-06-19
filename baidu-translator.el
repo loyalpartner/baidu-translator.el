@@ -24,25 +24,43 @@
 
 ;;; Code:
 
-
+(defgroup baidu-translator nil
+  ""
+  :group 'tools)
 
 (defconst baidu-translator--api-host "https://api.fanyi.baidu.com/api/trans/vip/translate")
 
 (defcustom baidu-translator-appid "20200607000488675"
-  "baidu appid" :type 'string)
+  "baidu appid"
+  :type 'string
+  :group 'baidu-translator)
 
 (defcustom baidu-translator-secret-key "Nb_cT61hFraVEUpkvp33"
-  "baidu secret key" :type 'string)
+  "baidu secret key"
+  :type 'string
+  :group 'baidu-translator)
 
 (defcustom baidu-translator-show-delay 0.5
-  "Delayed display" :type 'float)
+  "Delayed display"
+  :type 'float
+  :group 'baidu-translator)
+
+(defcustom baidu-translator-last-focused-thing-type 'sentence
+  "baidu appid"
+  :type 'symbol
+  :group 'baidu-translator)
+
+(defcustom baidu-translator-default-show-function 'baidu-translator-show-result-at-bottom
+  ""
+  :type 'function
+  :group 'baidu-translator)
+
+(defvar baidu-translator--timer nil "")
 
 (defvar baidu-translator-last-focused-thing "")
 
-(defcustom baidu-translator-last-focused-thing-type 'sentence
-  "baidu appid" :type 'symbol)
-
-(defvar baidu-translator--timer nil "")
+(defvar baidu-translator--cache-data
+  (make-hash-table :test #'equal))
 
 ;; https://stackoverflow.com/questions/19649872/get-list-of-interactive-functions-in-elisp-emacs
 ;; (mapconcat #'symbol-name (seq-filter #'commandp (apropos-internal "^next-")) "\n")
@@ -163,45 +181,55 @@
       (when (not (string-match "200 OK" (buffer-string)))
         (error "Problem connecting to the server"))
       (re-search-forward "^$" nil 'move)
-      (baidu-translator-extract-result (buffer-substring-no-properties (point) (point-max))))))
+      (buffer-substring-no-properties (point) (point-max)))))
 
-(defun baidu-translator-translate (from to text)
+(defun  baidu-translator-show-result-at-bottom (result)
   (with-current-buffer (get-buffer-create "*baidu translator*")
     (setq buffer-read-only nil)
+    (erase-buffer)
+    (insert result)
     (baidu-translator-mode)
     (visual-line-mode 1)
-    (erase-buffer)
     (use-local-map baidu-translator-map)
-    (insert (baidu-translator-get-result from to (baidu-translator--trim-tail text)))
     (setq buffer-read-only t)
     (goto-char (point-min))
     ;; (display-buffer-reuse-window (current-buffer) '((side . bottom)))
-    (display-buffer (current-buffer))
-    ))
+    (display-buffer (current-buffer))))
 
+(defun baidu-translator-translate (from to text)
+  (let* ((result (baidu-translator-extract-result (baidu-translator-get-result from to text))))
+    (funcall baidu-translator-default-show-function result)
+    (unless (string= "Invalid Access Limit" result)
+      (puthash text result baidu-translator--cache-data))))
 
-(defun baidu-translator-quit ()
-  (interactive)
-  (kill-buffer-and-window))
+(defun baidu-translator-do-translate ()
+  (baidu-translator-translate-thing-at-point nil))
 
 (defun baidu-translator-translate-thing-at-point ()
   (interactive)
-  (let* ((sentence (thing-at-point baidu-translator-last-focused-thing-type t))
+  (let* ((thing (thing-at-point baidu-translator-last-focused-thing-type t))
+         (sentence (and thing (baidu-translator--trim-tail thing)))
+         (cached-result (gethash sentence baidu-translator--cache-data))
          (word (thing-at-point 'word t))
          (from (if (baidu-translator--chinese-p word) "zh" "en"))
          (to (if (baidu-translator--chinese-p word) "en" "zh")))
     (cond ((not sentence))
           ((not (memq this-command baidu-translator-move-commands)))
           ((string= sentence baidu-translator-last-focused-thing))
-          
+          (cached-result (funcall baidu-translator-default-show-function cached-result)
+                         (setq baidu-translator-last-focused-thing sentence))
           (t (when baidu-translator--timer (cancel-timer baidu-translator--timer))
              (setq baidu-translator-last-focused-thing sentence
                    baidu-translator--timer (run-with-idle-timer
-                                           baidu-translator-show-delay nil
-                                           (apply-partially 'baidu-translator-translate from to sentence)))))))
+                                            baidu-translator-show-delay nil
+                                            #'baidu-translator-translate from to sentence))))))
+
+(defun baidu-translator-quit ()
+  (interactive)
+  (kill-buffer-and-window))
 
 (with-eval-after-load "evil"
-  (evil-define-operator evil-baidu-translate-operator (beg end type)
+  (evil-define-operator evil-baidu-translator-translate-operator (beg end type)
     (interactive "<R>")
     (let* ((text (buffer-substring-no-properties beg end))
            (word (thing-at-point 'word))
