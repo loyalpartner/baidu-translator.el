@@ -20,7 +20,7 @@
 
 ;;; Commentary:
 
-;; 
+;; TODO: 优化断句
 
 ;;; Code:
 
@@ -120,6 +120,7 @@
     evil-backward-word-end
     evil-next-line
     evil-previous-line
+    isearch-exit
     baidu-translator-translate-thing-at-point))
 
 (defvar baidu-translator-map
@@ -143,6 +144,9 @@
         (t (remove-hook 'post-command-hook #'baidu-translator-translate-thing-at-point t))))
 
 (defun baidu-translator--trim-tail (text)
+  (when (derived-mode-p 'Info-mode)
+    (setq text (replace-regexp-in-string "\\*Note \\([^:]*\\)::" "See \\1" text))
+    (setq text (replace-regexp-in-string "^[\\*-]{2,}" "" text)))
   (setq text (replace-regexp-in-string "^\\*" "\n\n*" text))
   (setq text (replace-regexp-in-string "\\(^\s*[0-9]+\\..*$\\)" "\\1\n" text))
   (setq text (replace-regexp-in-string "\\([^$]\\)\n\s*" "\\1 " text))
@@ -152,16 +156,6 @@
 
 (defun baidu-translator--chinese-p (word)
   (and word (string-match "\\cc" word)))
-
-(defun baidu-translator-extract-result (string)
-  (let* ((json (json-read-from-string string))
-         (trans_result (assoc-default 'trans_result json)))
-    (if trans_result
-        (mapconcat (lambda (json)
-                     (concat (assoc-default 'src json) "\n"
-                             (assoc-default 'dst json) "\n"))
-                   trans_result "\n")
-      (assoc-default 'error_msg json))))
 
 ;; https://fanyi-api.baidu.com/doc/21
 (defun baidu-translator-get-result (from to text)
@@ -183,7 +177,17 @@
       (re-search-forward "^$" nil 'move)
       (buffer-substring-no-properties (point) (point-max)))))
 
-(defun  baidu-translator-show-result-at-bottom (result)
+(defun baidu-translator-extract-result (string)
+  (let* ((json (json-read-from-string string))
+         (trans_result (assoc-default 'trans_result json)))
+    (if trans_result
+        (mapconcat (lambda (json)
+                     (concat (assoc-default 'src json) "\n"
+                             (assoc-default 'dst json) "\n"))
+                   trans_result "\n")
+      (assoc-default 'error_msg json))))
+
+(defun baidu-translator-show-result-at-bottom (result)
   (with-current-buffer (get-buffer-create "*baidu translator*")
     (setq buffer-read-only nil)
     (erase-buffer)
@@ -201,9 +205,6 @@
     (funcall baidu-translator-default-show-function result)
     (unless (string= "Invalid Access Limit" result)
       (puthash text result baidu-translator--cache-data))))
-
-(defun baidu-translator-do-translate ()
-  (baidu-translator-translate-thing-at-point nil))
 
 (defun baidu-translator-translate-thing-at-point ()
   (interactive)
