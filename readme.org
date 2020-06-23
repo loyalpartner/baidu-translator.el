@@ -1,0 +1,9 @@
+:PROPERTIES:
+:ID:       ff9a367e-580c-46b4-bd83-fca88cc17f37
+:END:
+#+TITLE:   
+#+DATE:    六月 23, 2020
+#+SINCE:   <replace with next tagged release version>
+#+STARTUP: inlineimages nofold
+
+[[./baidu-translator.gif][screenshot]]
