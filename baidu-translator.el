@@ -20,7 +20,7 @@
 
 ;;; Commentary:
 
-;; TODO: 优化断句
+;;
 
 ;;; Code:
 
@@ -146,11 +146,11 @@
 (defun baidu-translator--transform-special-text (text)
   (when (derived-mode-p 'Info-mode)
     (setq text (replace-regexp-in-string "\\*Note \\([^:]*\\)::" "See \\1" text))
-    (setq text (replace-regexp-in-string "^[\\*-]{2,}" "" text)))
-  ;; (setq text (replace-regexp-in-string "^\\*" "\n\n*" text))
-  ;; (setq text (replace-regexp-in-string "\\(^\s*[0-9]+\\..*$\\)" "\\1\n" text))
+    (setq text (replace-regexp-in-string "^[\\*-]{2,}" "" text))
+    (setq text (replace-regexp-in-string "-- .*$" "\\&\n" text))
+    (setq text (replace-regexp-in-string "^[=-\\*]+$" "" text))
+    )
   (setq text (replace-regexp-in-string "\\([^$]\\)\n\s*" "\\1 " text))
-  ;; (setq text (replace-regexp-in-string "\\([^0-9]+\\)\\.\s" "\\1.\n" text))
   ;; (setq text (replace-regexp-in-string "\\([^0-9]\\.\s\\)" "\\1\n" text))
   text)
 
@@ -203,6 +203,7 @@
 (defun baidu-translator-translate (from to text)
   (let* ((result (baidu-translator-extract-result (baidu-translator-get-result from to text))))
     (funcall baidu-translator-default-show-function result)
+    (setq baidu-translator-last-focused-thing text)
     (unless (string= "Invalid Access Limit" result)
       (puthash text result baidu-translator--cache-data))))
 
@@ -215,14 +216,13 @@
          (word (thing-at-point 'word t))
          (from (if (baidu-translator--chinese-p word) "zh" "en"))
          (to (if (baidu-translator--chinese-p word) "en" "zh")))
+    (when baidu-translator--timer (cancel-timer baidu-translator--timer))
     (cond ((not sentence))
           ((not (memq this-command baidu-translator-move-commands)))
           ((string= sentence baidu-translator-last-focused-thing))
           (cached-result (funcall baidu-translator-default-show-function cached-result)
                          (setq baidu-translator-last-focused-thing sentence))
-          (t (when baidu-translator--timer (cancel-timer baidu-translator--timer))
-             (setq baidu-translator-last-focused-thing sentence
-                   baidu-translator--timer (run-with-idle-timer
+          (t (setq baidu-translator--timer (run-with-idle-timer
                                             baidu-translator-show-delay nil
                                             #'baidu-translator-translate from to sentence))))))
 
@@ -240,4 +240,3 @@
       (baidu-translator-translate source target text))))
 
 (provide 'baidu-translator)
-
