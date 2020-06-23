@@ -6,4 +6,5 @@
 #+SINCE:   <replace with next tagged release version>
 #+STARTUP: inlineimages nofold
 
-[[./baidu-translator.gif][screenshot]]
+#+html: <p align="center"><img src="./baidu-translator.gif" /></p>
+
