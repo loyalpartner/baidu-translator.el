@@ -64,8 +64,15 @@
 
 (defvar baidu-translator-last-focused-thing "")
 
+(defcustom baidu-translator--cache-file "~/.baidu-translator" "")
+
 (defvar baidu-translator--cache-data
-  (make-hash-table :test #'equal))
+  (if (file-exists-p baidu-translator--cache-file)
+      (with-temp-buffer
+        (insert-file-contents baidu-translator--cache-file)
+        (read (buffer-string)))
+      (make-hash-table :test #'equal)))
+
 
 ;; https://stackoverflow.com/questions/19649872/get-list-of-interactive-functions-in-elisp-emacs
 ;; (mapconcat #'symbol-name (seq-filter #'commandp (apropos-internal "^next-")) "\n")
@@ -250,6 +257,11 @@
 (defun baidu-translator-quit ()
   (interactive)
   (kill-buffer-and-window))
+
+(defun baidu-translator-persist-cache ()
+  (interactive)
+  (with-temp-file baidu-translator--cache-file
+    (insert (prin1-to-string baidu-translator--cache-data))))
 
 (with-eval-after-load "evil"
   (evil-define-operator evil-baidu-translator-translate-operator (beg end type)

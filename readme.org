@@ -15,4 +15,6 @@
 #+BEGIN_SRC emacs-lisp
 (setq baidu-translator-default-show-function 'baidu-translator-show-result-with-posframe)
 #+END_SRC
+*** keep translation result
+=M-x= `baidu-translator-persist-cache'
 
