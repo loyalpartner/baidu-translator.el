@@ -55,6 +55,11 @@
   :type 'function
   :group 'baidu-translator)
 
+(defcustom baidu-translator--buffer "*baidu-translator*"
+  "*baidu-translator*"
+  :type 'string
+  :group 'baidu-translator)
+
 (defvar baidu-translator--timer nil "")
 
 (defvar baidu-translator-last-focused-thing "")
@@ -188,7 +193,7 @@
       (assoc-default 'error_msg json))))
 
 (defun baidu-translator-show-result-at-bottom (result)
-  (with-current-buffer (get-buffer-create "*baidu translator*")
+  (with-current-buffer (get-buffer-create baidu-translator--buffer)
     (setq buffer-read-only nil)
     (erase-buffer)
     (insert result)
@@ -199,6 +204,22 @@
     (goto-char (point-min))
     ;; (display-buffer-reuse-window (current-buffer) '((side . bottom)))
     (display-buffer (current-buffer))))
+
+(defun baidu-translator-show-result-with-posframe (result)
+  (require 'posframe)
+  (when (posframe-workable-p)
+    (posframe-show
+     baidu-translator--buffer
+     :string result
+     :position (point)
+     :timeout 20
+
+     :background-color (face-attribute 'sdcv-tooltip-face :background)
+     :foreground-color (face-attribute 'sdcv-tooltip-face :foreground)
+     :internal-border-width 10)
+    (unwind-protect
+        (push (read-event) unread-command-events)
+      (posframe-delete baidu-translator--buffer))))
 
 (defun baidu-translator-translate (from to text)
   (let* ((result (baidu-translator-extract-result (baidu-translator-get-result from to text))))
