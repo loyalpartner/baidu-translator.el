@@ -160,7 +160,7 @@
     (setq text (replace-regexp-in-string "\\*Note \\([^:]*\\)::" "See \\1" text))
     (setq text (replace-regexp-in-string "^[\\*-]{2,}" "" text)) ; remove ****** or ------------
     (setq text (replace-regexp-in-string "^\s*-- .*$" "\\&\n" text)) ; -- function 
-    (setq text (replace-regexp-in-string "^[=-\\*]+$" "" text))      ; ============ -----------
+    (setq text (replace-regexp-in-string "^[=\\*-]+$" "" text))      ; ============ -----------
     )
   (setq text (replace-regexp-in-string "\\([^$]\\)\n\s*" "\\1 " text)) ;
   ;; (setq text (replace-regexp-in-string "\\([^0-9]\\.\s\\)" "\\1\n" text))
