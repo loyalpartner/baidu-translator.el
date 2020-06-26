@@ -24,6 +24,8 @@
 
 ;;; Code:
 
+(require 'json)
+
 (defgroup baidu-translator nil
   ""
   :group 'tools)
@@ -163,31 +165,34 @@
     (setq text (replace-regexp-in-string "^[=\\*-]+$" "" text))      ; ============ -----------
     )
   (setq text (replace-regexp-in-string "\\([^$]\\)\n\s*" "\\1 " text)) ;
-  ;; (setq text (replace-regexp-in-string "\\([^0-9]\\.\s\\)" "\\1\n" text))
   text)
 
 (defun baidu-translator--chinese-p (word)
   (and word (string-match "\\cc" word)))
 
-;; https://fanyi-api.baidu.com/doc/21
-(defun baidu-translator-get-result (from to text)
-  "url request"
+(defun baidu-translator--http-post (url data)
   (let* ((url-request-method        "POST")
          (url-request-extra-headers `(("Content-Type" . "application/x-www-form-urlencoded")))
-         (salt (number-to-string (random)))
-         (url-request-data (format "q=%s&salt=%s&appid=%s&sign=%s&from=%s&to=%s"
-                                   (url-hexify-string text)
-                                   salt
-                                   baidu-translator-appid
-                                   (md5 (concat baidu-translator-appid text  salt baidu-translator-secret-key) nil nil (coding-system-from-name "utf-8"))
-                                   from to)))
-    (with-current-buffer (url-retrieve-synchronously baidu-translator--api-host)
+         (url-request-data data))
+    (with-current-buffer (url-retrieve-synchronously url)
       (set-buffer-multibyte t)
       (goto-char (point-min))
       (when (not (string-match "200 OK" (buffer-string)))
         (error "Problem connecting to the server"))
       (re-search-forward "^$" nil 'move)
       (buffer-substring-no-properties (point) (point-max)))))
+
+(defun baidu-translator--generate-sign (text salt)
+  (md5 (concat baidu-translator-appid text salt baidu-translator-secret-key) nil nil (coding-system-from-name "utf-8")))
+
+;; https://fanyi-api.baidu.com/doc/21
+(defun baidu-translator-get-result (from to text)
+  "url request"
+  (let* ((salt (number-to-string (random)))
+         (data (format "q=%s&salt=%s&appid=%s&sign=%s&from=%s&to=%s"
+                       (url-hexify-string text) salt baidu-translator-appid
+                       (baidu-translator--generate-sign text salt) from to)))
+    (baidu-translator--http-post baidu-translator--api-host data)))
 
 (defun baidu-translator-extract-result (string)
   (let* ((json (json-read-from-string string))
@@ -209,8 +214,10 @@
     (use-local-map baidu-translator-map)
     (setq buffer-read-only t)
     (goto-char (point-min))
-    ;; (display-buffer-reuse-window (current-buffer) '((side . bottom)))
-    (display-buffer (current-buffer))))
+    (display-buffer-in-side-window (current-buffer) '((side . bottom)
+                                                      (window-height . 0.2)))
+    ;; (display-buffer (current-buffer))
+    ))
 
 (defun baidu-translator-show-result-with-posframe (result)
   (require 'posframe)
@@ -237,7 +244,7 @@
 
 (defun baidu-translator-translate-thing-at-point ()
   (interactive)
-  (let* ((sentence-end-double-space t)
+  (let* ((sentence-end-double-space (if (derived-mode-p '(Info-mode)) t nil))
          (thing (thing-at-point baidu-translator-last-focused-thing-type t))
          (sentence (and thing (baidu-translator--transform-special-text thing)))
          (cached-result (gethash sentence baidu-translator--cache-data))
