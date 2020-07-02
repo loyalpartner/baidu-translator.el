@@ -42,14 +42,9 @@
   :type 'string
   :group 'baidu-translator)
 
-(defcustom baidu-translator-show-delay 0.5
+(defcustom baidu-translator-show-delay 0.3
   "Delayed display"
   :type 'float
-  :group 'baidu-translator)
-
-(defcustom baidu-translator-last-focused-thing-type 'sentence
-  "baidu appid"
-  :type 'symbol
   :group 'baidu-translator)
 
 (defcustom baidu-translator-default-show-function 'baidu-translator-show-result-at-bottom
@@ -75,11 +70,16 @@
       (with-temp-buffer
         (insert-file-contents baidu-translator-cache-file)
         (read (buffer-string)))
-      (make-hash-table :test #'equal)))
+    (make-hash-table :test #'equal)))
 
 (defcustom baidu-translator-target-language "zh" ""
   :type 'string
   :group 'baidu-translator)
+
+(defface baidu-translator-tooltip-face
+  '((t (:foreground "green" :background "gray12")))
+  "Face for sdcv tooltip"
+  :group 'sdcv)
 
 ;; https://stackoverflow.com/questions/19649872/get-list-of-interactive-functions-in-elisp-emacs
 ;; (mapconcat #'symbol-name (seq-filter #'commandp (apropos-internal "^next-")) "\n")
@@ -199,17 +199,18 @@
                      baidu-translator-last-focused-thing))))
 
 (defun baidu-translator--sentence-at-point ()
-  (baidu-translator--transform-special-text
-   (thing-at-point baidu-translator-last-focused-thing-type t)))
+  (let ((sentence-end-double-space (if (derived-mode-p '(Info-mode)) t nil)))
+    (baidu-translator--transform-special-text
+     (thing-at-point 'sentence t))))
 
 ;; https://fanyi-api.baidu.com/doc/21
 (defun baidu-translator-get-result (from to text)
   "url request"
   (let* ((salt (number-to-string (random)))
-         (data (format "q=%s&salt=%s&appid=%s&sign=%s&from=%s&to=%s&action=1"
+         (data (format "q=%s&salt=%s&appid=%s&sign=%s&from=%s&to=%s"
                        (url-hexify-string text) salt baidu-translator-appid
                        (baidu-translator--generate-sign text salt) from to)))
-    (baidu-translator--http-post baidu-translator--api-host data)))
+    (baidu-translator-extract-result (baidu-translator--http-post baidu-translator--api-host data))))
 
 (defun baidu-translator-extract-result (string)
   (let* ((json (json-read-from-string string))
@@ -243,38 +244,47 @@
     (posframe-show
      baidu-translator--buffer
      :string result
-     :position (point)
      :timeout 20
-
-     :background-color (face-attribute 'sdcv-tooltip-face :background)
-     :foreground-color (face-attribute 'sdcv-tooltip-face :foreground)
+     :poshandler 'posframe-poshandler-frame-bottom-center
+     :min-width (frame-width)
+     :background-color (face-attribute 'baidu-translator-tooltip-face :background)
+     :foreground-color (face-attribute 'baidu-translator-tooltip-face :foreground)
      :internal-border-width 10)
     (unwind-protect
         (push (read-event) unread-command-events)
       (posframe-delete baidu-translator--buffer))))
 
 (defun baidu-translator-translate (from to text)
-  (let* ((result (baidu-translator-extract-result (baidu-translator-get-result from to text))))
+  (let* ((result (baidu-translator-get-result from to text)))
     (funcall baidu-translator-default-show-function result)
     (setq baidu-translator-last-focused-thing text)
-    (unless (string= "Invalid Access Limit" result)
+    (unless (or (string= "Invalid Access Limit" result)
+                (string= "TIMEOUT" result))
+      
       (puthash text result baidu-translator--cache-data))))
+
+(defmacro baidu-translator-delay-handle (func &rest args)
+  `(setq baidu-translator--timer
+         (run-with-idle-timer
+          ,baidu-translator-show-delay nil
+          (lambda (&rest args)
+            (apply ,func args))
+          ,@args)))
 
 (defun baidu-translator-translate-thing-at-point ()
   (interactive)
-  (let* ((sentence-end-double-space (if (derived-mode-p '(Info-mode)) t nil))
-         (sentence (baidu-translator--sentence-at-point))
-         (cached-result (gethash sentence baidu-translator--cache-data))
-         (word (thing-at-point 'word t))
-         (from "auto")
-         (to baidu-translator-target-language))
-    (when baidu-translator--timer (cancel-timer baidu-translator--timer))
-    (cond ((not (baidu-translator--need-translate-p)))
-          (cached-result (funcall baidu-translator-default-show-function cached-result)
-                         (setq baidu-translator-last-focused-thing sentence))
-          (t (setq baidu-translator--timer (run-with-idle-timer
-                                            baidu-translator-show-delay nil
-                                            #'baidu-translator-translate from to sentence))))))
+  (when-let ((_ (baidu-translator--need-translate-p))
+             (sentence (baidu-translator--sentence-at-point)))
+
+    (when baidu-translator--timer
+      (cancel-timer baidu-translator--timer))
+
+    (setq baidu-translator-last-focused-thing sentence)
+    (if-let ((cached-result
+              (gethash sentence baidu-translator--cache-data)))
+        (baidu-translator-delay-handle baidu-translator-default-show-function cached-result)
+      (baidu-translator-delay-handle #'baidu-translator-translate
+                                     "auto" baidu-translator-target-language sentence))))
 
 (defun baidu-translator-quit ()
   (interactive)
