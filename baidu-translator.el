@@ -59,7 +59,7 @@
 
 (defvar baidu-translator--timer nil "")
 
-(defvar baidu-translator-last-focused-thing "")
+(defvar baidu-translator-last-focused-sentence "")
 
 (defcustom baidu-translator-cache-file "~/.baidu-translator" ""
   :type 'string
@@ -158,7 +158,7 @@
             map)
   (cond (baidu-translator-translate-mode
          (progn
-           (make-local-variable 'baidu-translator-last-focused-thing)
+           (make-local-variable 'baidu-translator-last-focused-sentence)
            (add-hook 'post-command-hook #'baidu-translator-translate-thing-at-point nil t)))
         (t (remove-hook 'post-command-hook #'baidu-translator-translate-thing-at-point t))))
 
@@ -196,7 +196,7 @@
   (and (sentence-at-point)
        (memq this-command baidu-translator-move-commands)
        (not (string= (baidu-translator--sentence-at-point)
-                     baidu-translator-last-focused-thing))))
+                     baidu-translator-last-focused-sentence))))
 
 (defun baidu-translator--sentence-at-point ()
   (let ((sentence-end-double-space (if (derived-mode-p '(Info-mode)) t nil)))
@@ -257,7 +257,7 @@
 (defun baidu-translator-translate (from to text)
   (let* ((result (baidu-translator-get-result from to text)))
     (funcall baidu-translator-default-show-function result)
-    (setq baidu-translator-last-focused-thing text)
+    (setq baidu-translator-last-focused-sentence text)
     (unless (or (string= "Invalid Access Limit" result)
                 (string= "TIMEOUT" result))
       
@@ -279,7 +279,7 @@
     (when baidu-translator--timer
       (cancel-timer baidu-translator--timer))
 
-    (setq baidu-translator-last-focused-thing sentence)
+    (setq baidu-translator-last-focused-sentence sentence)
     (if-let ((cached-result
               (gethash sentence baidu-translator--cache-data)))
         (baidu-translator-delay-handle baidu-translator-default-show-function cached-result)
@@ -295,13 +295,5 @@
   (with-temp-file baidu-translator-cache-file
     (insert (prin1-to-string baidu-translator--cache-data))))
 
-(with-eval-after-load "evil"
-  (evil-define-operator evil-baidu-translator-translate-operator (beg end type)
-    (interactive "<R>")
-    (let* ((text (buffer-substring-no-properties beg end))
-           (word (thing-at-point 'word))
-           (source (if (baidu-translator--chinese-p word) "zh" "en"))
-           (target (if (baidu-translator--chinese-p word) "en" "zh")))
-      (baidu-translator-translate source target (baidu-translator--transform-special-text text)))))
 
 (provide 'baidu-translator)
