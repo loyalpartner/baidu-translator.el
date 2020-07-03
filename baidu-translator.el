@@ -190,12 +190,12 @@
       (buffer-substring-no-properties (point) (point-max)))))
 
 (defun baidu-translator-generate-sign (text salt)
-  (let (origin (format
-                "%s%s%s%s"
-                baidu-translator-appid
-                text
-                salt
-                baidu-translator-secret-key))
+  (let ((origin (format
+                 "%s%s%s%s"
+                 baidu-translator-appid
+                 text
+                 salt
+                 baidu-translator-secret-key)))
     (md5 origin nil nil (coding-system-from-name "utf-8"))))
 
 (defun baidu-translator-sentence-change-p ()
@@ -289,10 +289,7 @@
     (when baidu-translator-timer
       (cancel-timer baidu-translator-timer))
 
-    (when (and (memq this-command baidu-translator-move-commands)
-               (baidu-translator-sentence-change-p))
-
-      (setq baidu-translator-focused-sentence sentence)
+    (when (memq this-command baidu-translator-move-commands)
 
       (when sentence
         (baidu-translator-execute-translate sentence)))))
