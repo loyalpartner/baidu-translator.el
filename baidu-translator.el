@@ -30,9 +30,9 @@
   ""
   :group 'tools)
 
-(defconst baidu-translator--api-host "https://api.fanyi.baidu.com/api/trans/vip/translate")
+(defconst baidu-translator-api-host "https://api.fanyi.baidu.com/api/trans/vip/translate")
 
-(defcustom baidu-translator-appid "20200607000488675"
+(defcustom baidu-translator-appid ""
   "baidu appid"
   :type 'string
   :group 'baidu-translator)
@@ -52,20 +52,20 @@
   :type 'function
   :group 'baidu-translator)
 
-(defcustom baidu-translator--buffer "*baidu-translator*"
+(defcustom baidu-translator-buffer "*baidu-translator*"
   "*baidu-translator*"
   :type 'string
   :group 'baidu-translator)
 
-(defvar baidu-translator--timer nil "")
+(defvar baidu-translator-timer nil "")
 
-(defvar baidu-translator-last-focused-sentence "")
+(defvar baidu-translator-focused-sentence "")
 
 (defcustom baidu-translator-cache-file "~/.baidu-translator" ""
   :type 'string
   :group 'baidu-translator)
 
-(defvar baidu-translator--cache-data
+(defvar baidu-translator-cache-data
   (if (file-exists-p baidu-translator-cache-file)
       (with-temp-buffer
         (insert-file-contents baidu-translator-cache-file)
@@ -158,11 +158,11 @@
             map)
   (cond (baidu-translator-translate-mode
          (progn
-           (make-local-variable 'baidu-translator-last-focused-sentence)
+           (make-local-variable 'baidu-translator-focused-sentence)
            (add-hook 'post-command-hook #'baidu-translator-translate-thing-at-point nil t)))
         (t (remove-hook 'post-command-hook #'baidu-translator-translate-thing-at-point t))))
 
-(defun baidu-translator--transform-special-text (text)
+(defun baidu-translator-transform-special-text (text)
   (when text
     (when (derived-mode-p 'Info-mode)
       (setq text (replace-regexp-in-string "^‘\\(.*\\)’$" "\\1\n" text)) ;; ‘inhibit-same-window’
@@ -174,10 +174,10 @@
     (setq text (replace-regexp-in-string "\\([^$]\\)\n\s*" "\\1 " text))) ;
   text)
 
-(defun baidu-translator--chinese-p (word)
+(defun baidu-translator-chinese-p (word)
   (and word (string-match "\\cc" word)))
 
-(defun baidu-translator--http-post (url data)
+(defun baidu-translator-http-post (url data)
   (let* ((url-request-method        "POST")
          (url-request-extra-headers `(("Content-Type" . "application/x-www-form-urlencoded")))
          (url-request-data data))
@@ -189,41 +189,51 @@
       (re-search-forward "^$" nil 'move)
       (buffer-substring-no-properties (point) (point-max)))))
 
-(defun baidu-translator--generate-sign (text salt)
-  (md5 (concat baidu-translator-appid text salt baidu-translator-secret-key) nil nil (coding-system-from-name "utf-8")))
+(defun baidu-translator-generate-sign (text salt)
+  (let (origin (format
+                "%s%s%s%s"
+                baidu-translator-appid
+                text
+                salt
+                baidu-translator-secret-key))
+    (md5 origin nil nil (coding-system-from-name "utf-8"))))
 
-(defun baidu-translator--need-translate-p ()
-  (and (sentence-at-point)
-       (memq this-command baidu-translator-move-commands)
-       (not (string= (baidu-translator--sentence-at-point)
-                     baidu-translator-last-focused-sentence))))
+(defun baidu-translator-sentence-change-p ()
+  (not (string= (baidu-translator-sentence-at-point)
+                baidu-translator-focused-sentence)))
 
-(defun baidu-translator--sentence-at-point ()
-  (let ((sentence-end-double-space (if (derived-mode-p '(Info-mode)) t nil)))
-    (baidu-translator--transform-special-text
+(defun baidu-translator-sentence-at-point ()
+  (let ((sentence-end-double-space
+         (if (derived-mode-p '(Info-mode)) t nil)))
+    (baidu-translator-transform-special-text
      (thing-at-point 'sentence t))))
 
 ;; https://fanyi-api.baidu.com/doc/21
 (defun baidu-translator-get-result (from to text)
   "url request"
   (let* ((salt (number-to-string (random)))
-         (data (format "q=%s&salt=%s&appid=%s&sign=%s&from=%s&to=%s"
-                       (url-hexify-string text) salt baidu-translator-appid
-                       (baidu-translator--generate-sign text salt) from to)))
-    (baidu-translator-extract-result (baidu-translator--http-post baidu-translator--api-host data))))
+         (api baidu-translator-api-host)
+         (appid baidu-translator-appid)
+         (sign (baidu-translator-generate-sign text salt))
+         data result)
+    (setq data (format
+                "q=%s&salt=%s&appid=%s&sign=%s&from=%s&to=%s"
+                (url-hexify-string text)
+                salt appid sign from to))
+    (setq result (baidu-translator-http-post api data))
+    (baidu-translator-extract-result result)))
 
 (defun baidu-translator-extract-result (string)
   (let* ((json (json-read-from-string string))
          (trans_result (assoc-default 'trans_result json)))
-    (if trans_result
-        (mapconcat (lambda (json)
-                     (concat (assoc-default 'src json) "\n"
-                             (assoc-default 'dst json) "\n"))
-                   trans_result "\n")
-      (assoc-default 'error_msg json))))
+    (when trans_result
+      (mapconcat (lambda (json)
+                   (concat (assoc-default 'src json) "\n"
+                           (assoc-default 'dst json) "\n"))
+                 trans_result "\n"))))
 
 (defun baidu-translator-show-result-at-bottom (result)
-  (with-current-buffer (get-buffer-create baidu-translator--buffer)
+  (with-current-buffer (get-buffer-create baidu-translator-buffer)
     (setq buffer-read-only nil)
     (erase-buffer)
     (insert result)
@@ -234,57 +244,58 @@
     (goto-char (point-min))
     (display-buffer-in-side-window (current-buffer) '((side . bottom)
                                                       (slot)
-                                                      (window-height . 0.2)))
-    ;; (display-buffer (current-buffer))
-    ))
+                                                      (window-height . 0.2)))))
 
 (defun baidu-translator-show-result-with-posframe (result)
   (require 'posframe)
   (when (posframe-workable-p)
     (posframe-show
-     baidu-translator--buffer
+     baidu-translator-buffer
      :string result
-     :timeout 20
+     :timeout 100
      :poshandler 'posframe-poshandler-frame-bottom-center
      :min-width (frame-width)
-     :background-color (face-attribute 'baidu-translator-tooltip-face :background)
-     :foreground-color (face-attribute 'baidu-translator-tooltip-face :foreground)
      :internal-border-width 10)
     (unwind-protect
         (push (read-event) unread-command-events)
-      (posframe-delete baidu-translator--buffer))))
+      (posframe-delete baidu-translator-buffer))))
 
 (defun baidu-translator-translate (from to text)
-  (let* ((result (baidu-translator-get-result from to text)))
+  (when-let* ((result
+               (baidu-translator-get-result from to text)))
     (funcall baidu-translator-default-show-function result)
-    (setq baidu-translator-last-focused-sentence text)
-    (unless (or (string= "Invalid Access Limit" result)
-                (string= "TIMEOUT" result))
-      
-      (puthash text result baidu-translator--cache-data))))
+    (puthash text result baidu-translator-cache-data)))
 
-(defmacro baidu-translator-delay-handle (func &rest args)
-  `(setq baidu-translator--timer
+(defmacro baidu-translator-lazy-execute (func &rest args)
+  `(setq baidu-translator-timer
          (run-with-idle-timer
           ,baidu-translator-show-delay nil
-          (lambda (&rest args)
-            (apply ,func args))
+          (lambda (args) (apply ,func args))
           ,@args)))
+
+(defun baidu-translator-execute-translate (sentence)
+  (let* ((cache (gethash sentence baidu-translator-cache-data))
+         (to baidu-translator-target-language)
+         (func baidu-translator-default-show-function)
+         args)
+    (setq func (if cache func #'baidu-translator-translate))
+    (setq args (if cache (list cache) (list "auto" to sentence)))
+    (baidu-translator-lazy-execute func args)))
 
 (defun baidu-translator-translate-thing-at-point ()
   (interactive)
-  (when-let ((_ (baidu-translator--need-translate-p))
-             (sentence (baidu-translator--sentence-at-point)))
+  (let ((sentence (baidu-translator-sentence-at-point)))
+    
+    (when baidu-translator-timer
+      (cancel-timer baidu-translator-timer))
 
-    (when baidu-translator--timer
-      (cancel-timer baidu-translator--timer))
+    (when (and (memq this-command baidu-translator-move-commands)
+               (baidu-translator-sentence-change-p))
 
-    (setq baidu-translator-last-focused-sentence sentence)
-    (if-let ((cached-result
-              (gethash sentence baidu-translator--cache-data)))
-        (baidu-translator-delay-handle baidu-translator-default-show-function cached-result)
-      (baidu-translator-delay-handle #'baidu-translator-translate
-                                     "auto" baidu-translator-target-language sentence))))
+      (setq baidu-translator-focused-sentence sentence)
+
+      (when sentence
+        (baidu-translator-execute-translate sentence)))))
 
 (defun baidu-translator-quit ()
   (interactive)
@@ -293,7 +304,7 @@
 (defun baidu-translator-persist-cache ()
   (interactive)
   (with-temp-file baidu-translator-cache-file
-    (insert (prin1-to-string baidu-translator--cache-data))))
+    (insert (prin1-to-string baidu-translator-cache-data))))
 
 
 (provide 'baidu-translator)
