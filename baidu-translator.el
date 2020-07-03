@@ -52,6 +52,14 @@
   :type 'function
   :group 'baidu-translator)
 
+(defcustom baidu-translator-target-language "zh" ""
+  :type 'string
+  :group 'baidu-translator)
+
+(defcustom baidu-translator-cache-file "~/.baidu-translator" ""
+  :type 'string
+  :group 'baidu-translator)
+
 (defcustom baidu-translator-buffer "*baidu-translator*"
   "*baidu-translator*"
   :type 'string
@@ -61,20 +69,12 @@
 
 (defvar baidu-translator-focused-sentence "")
 
-(defcustom baidu-translator-cache-file "~/.baidu-translator" ""
-  :type 'string
-  :group 'baidu-translator)
-
 (defvar baidu-translator-cache-data
   (if (file-exists-p baidu-translator-cache-file)
       (with-temp-buffer
         (insert-file-contents baidu-translator-cache-file)
         (read (buffer-string)))
     (make-hash-table :test #'equal)))
-
-(defcustom baidu-translator-target-language "zh" ""
-  :type 'string
-  :group 'baidu-translator)
 
 (defface baidu-translator-tooltip-face
   '((t (:foreground "green" :background "gray12")))
