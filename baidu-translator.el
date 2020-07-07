@@ -182,7 +182,7 @@
   (let* ((url-request-method        "POST")
          (url-request-extra-headers `(("Content-Type" . "application/x-www-form-urlencoded")))
          (url-request-data data))
-    (with-current-buffer (url-retrieve-synchronously url)
+    (with-current-buffer (url-retrieve-synchronously url t)
       (set-buffer-multibyte t)
       (goto-char (point-min))
       (when (not (string-match "200 OK" (buffer-string)))
@@ -269,12 +269,12 @@
     (funcall baidu-translator-default-show-function result)
     (puthash text result baidu-translator-cache-data)))
 
-(defmacro baidu-translator-lazy-execute (func &rest args)
+(defmacro baidu-translator-lazy-execute (func args)
   `(setq baidu-translator-timer
          (run-with-idle-timer
           ,baidu-translator-show-delay nil
           (lambda (args) (apply ,func args))
-          ,@args)))
+          ,args)))
 
 (defun baidu-translator-execute-translate (sentence)
   (let* ((cache (gethash sentence baidu-translator-cache-data))
@@ -292,10 +292,9 @@
     (when baidu-translator-timer
       (cancel-timer baidu-translator-timer))
 
-    (when (memq this-command baidu-translator-move-commands)
-
-      (when sentence
-        (baidu-translator-execute-translate sentence)))))
+    (when (and (memq this-command baidu-translator-move-commands)
+               sentence)
+      (baidu-translator-execute-translate sentence))))
 
 (defun baidu-translator-quit ()
   (interactive)
