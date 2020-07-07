@@ -28,7 +28,8 @@
 
 (defgroup baidu-translator nil
   ""
-  :group 'tools)
+  :group 'Tools
+  :version "0.0.1")
 
 (defconst baidu-translator-api-host "https://api.fanyi.baidu.com/api/trans/vip/translate")
 
