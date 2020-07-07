@@ -187,7 +187,9 @@
       (when (not (string-match "200 OK" (buffer-string)))
         (error "Problem connecting to the server"))
       (re-search-forward "^$" nil 'move)
-      (buffer-substring-no-properties (point) (point-max)))))
+      (prog1
+          (buffer-substring-no-properties (point) (point-max))
+        (kill-buffer)))))
 
 (defun baidu-translator-generate-sign (text salt)
   (let ((origin (format
