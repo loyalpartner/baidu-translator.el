@@ -20,7 +20,7 @@
 
 ;;; Commentary:
 
-;;
+;; TODO: Region Support
 
 ;;; Code:
 
@@ -43,7 +43,7 @@
   :type 'string
   :group 'baidu-translator)
 
-(defcustom baidu-translator-show-delay 0.3
+(defcustom baidu-translator-show-delay 0.5
   "Delayed display"
   :type 'float
   :group 'baidu-translator)
