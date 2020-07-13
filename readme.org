@@ -11,10 +11,19 @@
 #+html: <p align="center"><img src="./baidu-translator.gif" /></p>
 
 ** Usage
-*** show result with posframe
+*** 开通百度通用翻译API
+[[http://api.fanyi.baidu.com/api/trans/product/apichoose]]
+
+#+BEGIN_SRC emacs-lisp
+  (setq baidu-translator-appid "xxxx"
+        baidu-translator-secret-key "xxxxx")
+#+END_SRC
+
+*** 默认会用弹出窗口的形式显示翻译结果
+*** 用 posframe 显示翻译结果
 #+BEGIN_SRC emacs-lisp
 (setq baidu-translator-default-show-function 'baidu-translator-show-result-with-posframe)
 #+END_SRC
-*** keep translation result
+*** 缓存翻译结果
 =M-x= `baidu-translator-persist-cache'
 
