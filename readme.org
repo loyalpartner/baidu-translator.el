@@ -5,7 +5,7 @@
 #+DATE:    六月 23, 2020
 #+SINCE:   <replace with next tagged release version>
 #+STARTUP: inlineimages nofold
-
+** 该项目已经停止更新。作者开发了另外一款插件，[[https://github.com/loyalpartner/english-teacher.el][english-teacher]] 支持多个翻译后端,功能更完善.
 ** Screenshots
 
 #+html: <p align="center"><img src="./baidu-translator.gif" /></p>
